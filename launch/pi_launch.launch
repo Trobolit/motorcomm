@@ -1,0 +1,6 @@
+<launch>
+ 
+  <!-- motorcomm node -->
+   <node pkg="motorcomm" type="motorcomm_node" name="motorcomm"/>
+
+</launch>
