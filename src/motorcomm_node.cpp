@@ -1,6 +1,22 @@
 #include "ros/ros.h"
 #include "geometry_msgs/Twist.h"
 
+//#include <iostream>
+//#include <unistd.h>
+#include <string>
+
+//#include <stdio.h> // standard input / output functions
+//#include <string.h> // string function definitions
+//#include <unistd.h> // UNIX standard function definitions
+#include <fcntl.h> // File control definitions
+//#include <errno.h> // Error number definitions
+#include <termios.h> // POSIX terminal control definitionss
+#include <time.h>   // time calls
+
+#define BAUDRATE B57600
+
+int fileDescriptor;
+
 /**
  * This tutorial demonstrates simple receipt of messages over the ROS system.
  */
@@ -20,6 +36,20 @@ void motorPowerCallback(const geometry_msgs::Twist::ConstPtr & msg)
 	ROS_INFO("I got this:\n Linear:\nx:%f\ny:%f\nz:%f\n MegaAngle:\nx:%f\ny:%f\nz:%f\n",
 		vel_msg.linear.x, vel_msg.linear.y,msg->linear.z,
 		msg->angular.x, msg->angular.y, msg->angular.z);
+
+
+	// interface used over serial is:
+	// (byte values)
+	//  0 meanst stop, 1 forward and 2 rev
+	// SOM, L_dir, L_speed, R_dir, R_speed, EOM
+	// where x_speed are between 0 and 200.
+	// Issuing a stop (0 in any of the dirs) will stop both wheels.
+	// A working example of a string that will get wheels rolling:
+	// std::string test = "\xFA\x2\xC8\x1\x60\xFB";
+        // write(fileDescriptor, test.c_str(), sizeof(char)*test.size() );
+
+	std::string test = "\xFA\x2\xC8\x1\x60\xFB";
+	write(fileDescriptor,test.c_str() , 6*sizeof(char));
 
 
 /* To test in ros, first run this node, then issue the command:
@@ -72,6 +102,41 @@ int main(int argc, char **argv)
    * away the oldest ones.
    */
   ros::Subscriber sub = n.subscribe<geometry_msgs::Twist>("motor_power", 200, motorPowerCallback);
+
+
+
+
+  // This sets up the serial communication to the arduino driver.
+    fileDescriptor = open("/dev/ttyACM0", O_RDWR | O_NOCTTY); //open link to arudino
+
+    struct termios newtio;
+    bzero(&newtio, sizeof(newtio));
+    newtio.c_cflag = BAUDRATE | CRTSCTS | CS8 | CLOCAL | CREAD;
+
+    // set to 8N1
+    newtio.c_cflag &= ~PARENB;
+    newtio.c_cflag &= ~CSTOPB;
+    newtio.c_cflag &= ~CSIZE;
+    newtio.c_cflag |= CS8;
+
+    newtio.c_iflag = IGNPAR;
+
+    // output mode to
+    //newtio.c_oflag = 0;
+    newtio.c_oflag |= OPOST;
+
+    /* set input mode (non-canonical, no echo,...) */
+    newtio.c_lflag = 0;
+
+    newtio.c_cc[VTIME] = 10; /* inter-character timer 1 sec */
+    newtio.c_cc[VMIN] = 0; /* blocking read disabled  */
+
+    tcflush(fileDescriptor, TCIFLUSH);
+    if (tcsetattr(fileDescriptor, TCSANOW, &newtio)) {
+        perror("could not set the serial settings!");
+        return -99;
+    }
+
 
   /**
    * ros::spin() will enter a loop, pumping callbacks.  With this version, all
