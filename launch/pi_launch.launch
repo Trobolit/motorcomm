@@ -1,7 +1,7 @@
 <launch>
  
   <!-- change ip -->
-   <env name="ROS_IP" value="10.9.0.3"
+   <env name="ROS_IP" value="10.9.0.3"/>
 
   <!-- motorcomm node -->
    <node pkg="motorcomm" type="motorcomm_node" name="motorcomm"/>
