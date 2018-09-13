@@ -6,7 +6,7 @@
   <!-- motorcomm node -->
    <node pkg="motorcomm" type="motorcomm_node" name="motorcomm"/>
   
-  <!-- EngineMgmt node -->
-   <node pkg="EngienMgmt" type="EngienMgmt" name="EngineMgmt"/>
+  <!-- engine_mgmt node -->
+   <node pkg="engine_mgmt" type="engine_mgmt" name="engine_mgmt"/>
 
 </launch>
