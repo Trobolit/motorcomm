@@ -1,42 +1,57 @@
 #include "ros/ros.h"
 #include "geometry_msgs/Twist.h"
 
-//#include <iostream>
-//#include <unistd.h>
 #include <string>
 
+#include <fcntl.h> // File control definitions
+#include <termios.h> // POSIX terminal control definitionss
+#include <time.h>   // time calls
+
+// unused imports
+//#include <iostream>
 //#include <stdio.h> // standard input / output functions
 //#include <string.h> // string function definitions
 //#include <unistd.h> // UNIX standard function definitions
-#include <fcntl.h> // File control definitions
 //#include <errno.h> // Error number definitions
-#include <termios.h> // POSIX terminal control definitionss
-#include <time.h>   // time calls
+
 
 #define BAUDRATE B57600
 
 int fileDescriptor;
 
-/**
- * This tutorial demonstrates simple receipt of messages over the ROS system.
- */
+/* To test in ros, first run this node, then issue the command:
+* rostopic pub /motor_power geometry_msgs/Twist "linear:
+  x: 120.0
+  y: 0.0
+  z: -80.0
+angular:
+  x: 0.0
+  y: 0.0
+  z: 0.0" -1
+
+*/
 
 geometry_msgs::Twist vel_msg;
-unsigned char tmp[] = {250, 0, 0, 0, 0, 251};
+unsigned char serialData[] = {250, 0, 0, 0, 0, 251};
 
 void motorPowerCallback(const geometry_msgs::Twist::ConstPtr & msg)
 {
-	vel_msg = *msg; // This is how one can modify the data coming in.
-	vel_msg.linear.x = 666;
+
+	// Uncomment this if you want to be able to modify the incoming data.
+	// (Also the declaration above)	
+	//vel_msg = *msg; 
+	//vel_msg.linear.x = 666; //e.g.
 
 	// Example on how to access the data, both from msg and vel_msg. Note the arrow.
-	// It seems msg->anglular.z is essentially (*msg).angular.z
+	// It seems msg->anglular.z is essentially the same as (*msg).angular.z
 	// Note: Using the arrow the data is read only, which is normally what you need.
 	// Using the pointers this way the data is never copied around, which is good for 
 	// performance on the pi!
-	ROS_INFO("I got this:\n Linear:\nx:%f\ny:%f\nz:%f\n MegaAngle:\nx:%f\ny:%f\nz:%f\n",
-		vel_msg.linear.x, vel_msg.linear.y,msg->linear.z,
-		msg->angular.x, msg->angular.y, msg->angular.z);
+	
+	// Uncomment below for debugging.
+	//ROS_INFO("I got this:\n Linear:\nx:%f\ny:%f\nz:%f\n MegaAngle:\nx:%f\ny:%f\nz:%f\n",
+	//	vel_msg.linear.x, vel_msg.linear.y,msg->linear.z,
+	//	msg->angular.x, msg->angular.y, msg->angular.z);
 
 
 	// interface used over serial is:
@@ -45,34 +60,29 @@ void motorPowerCallback(const geometry_msgs::Twist::ConstPtr & msg)
 	// SOM, L_dir, L_speed, R_dir, R_speed, EOM
 	// where x_speed are between 0 and 200.
 	// Issuing a stop (0 in any of the dirs) will stop both wheels.
-	// A working example of a string that will get wheels rolling:
-	// std::string test = "\xFA\x2\xC8\x1\x60\xFB";
-        // write(fileDescriptor, test.c_str(), sizeof(char)*test.size() );
 
-	//std::string test = "\xFA\x2\xC8\x1\x60\xFB";
-	//unsigned char tmp[] = {250, 2, 150, 1, 100, 251};
-	//fwrite(tmp, sizeof(char), 6, fileDescriptor);	
+	if(round(msg->linear.x) == 0) {
+		serialData[1] = 0;
+		serialData[2] = 0;
+	} else {
+		// convert sign of power into digit 1 or 2 for arduino comm.
+		serialData[1] = (unsigned char)round(1.5-0.5*abs(msg->linear.x)/(msg->linear.x));
+		// remove sign from incoming data, and multiply by 2 since incoming is from -100 to 100.
+		serialData[2] = (unsigned char)round(abs(2*(msg->linear.x)));
+	}
+	if(round(msg->linear.z) == 0) {
+		serialData[3] = 0;
+		serialData[4] = 0;
+	} else {
+		// convert sign of power into digit 1 or 2 for arduino comm.
+		serialData[3] = (unsigned char)round(1.5-0.5*abs(msg->linear.z)/(msg->linear.z));
+		// remove sign from incoming data, and multiply by 2 since incoming is from -100 to 100.
+		serialData[4] = (unsigned char)round(abs(2*(msg->linear.z)));
+	}
 
-	
-	// convert sign of power into digit 1 or 2 for arduino comm.
-	tmp[1] = (unsigned char)round(1.5-0.5*abs(msg->linear.x)/(msg->linear.x));
-	tmp[2] = (unsigned char)round(abs(2*(msg->linear.x)));
-	tmp[3] = (unsigned char)round(1.5-0.5*abs(msg->linear.x)/(msg->linear.z));
-	tmp[4] = (unsigned char)round(abs(2*(msg->linear.z)));
-	write(fileDescriptor, tmp , 6*sizeof(char));
+	// Send data to arduino!
+	write(fileDescriptor, serialData , 6*sizeof(char));
 
-
-/* To test in ros, first run this node, then issue the command:
-* rostopic pub /motor_power geometry_msgs/Twist "linear:
-  x: 1.0
-  y: 2.0
-  z: 3.0
-angular:
-  x: 4.0
-  y: 5.0
-  z: 1.0" -1
-
-*/
 }
 
 int main(int argc, char **argv)
@@ -114,10 +124,13 @@ int main(int argc, char **argv)
   ros::Subscriber sub = n.subscribe<geometry_msgs::Twist>("motor_power", 200, motorPowerCallback);
 
 
-
+  // The serial setup is mostly inspired by this:
+  // https://stackoverflow.com/questions/38533480/c-libserial-serial-connection-to-arduino
+  // Which sets things like parity, stop byte, length, etc.
 
   // This sets up the serial communication to the arduino driver.
     fileDescriptor = open("/dev/ttyACM0", O_RDWR | O_NOCTTY); //open link to arudino
+
 
     struct termios newtio;
     bzero(&newtio, sizeof(newtio));
