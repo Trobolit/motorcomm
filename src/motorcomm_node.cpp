@@ -61,19 +61,16 @@ void motorPowerCallback(const geometry_msgs::Twist::ConstPtr & msg)
 	// where x_speed are between 0 and 200.
 	// Issuing a stop (0 in any of the dirs) will stop both wheels.
 
-	if(round(msg->linear.x) == 0) {
+	if(round(msg->linear.x) == 0 && round(msg->linear.z == 0)) {
 		serialData[1] = 0;
 		serialData[2] = 0;
+		serialData[3] = 0;
+		serialData[4] = 0;
 	} else {
 		// convert sign of power into digit 1 or 2 for arduino comm.
 		serialData[1] = (unsigned char)round(1.5-0.5*abs(msg->linear.x)/(msg->linear.x));
 		// remove sign from incoming data, and multiply by 2 since incoming is from -100 to 100.
 		serialData[2] = (unsigned char)round(abs(2*(msg->linear.x)));
-	}
-	if(round(msg->linear.z) == 0) {
-		serialData[3] = 0;
-		serialData[4] = 0;
-	} else {
 		// convert sign of power into digit 1 or 2 for arduino comm.
 		serialData[3] = (unsigned char)round(1.5-0.5*abs(msg->linear.z)/(msg->linear.z));
 		// remove sign from incoming data, and multiply by 2 since incoming is from -100 to 100.
