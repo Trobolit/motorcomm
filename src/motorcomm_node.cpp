@@ -22,6 +22,7 @@ int fileDescriptor;
  */
 
 geometry_msgs::Twist vel_msg;
+unsigned char tmp[] = {250, 0, 0, 0, 0, 251};
 
 void motorPowerCallback(const geometry_msgs::Twist::ConstPtr & msg)
 {
@@ -48,8 +49,17 @@ void motorPowerCallback(const geometry_msgs::Twist::ConstPtr & msg)
 	// std::string test = "\xFA\x2\xC8\x1\x60\xFB";
         // write(fileDescriptor, test.c_str(), sizeof(char)*test.size() );
 
-	std::string test = "\xFA\x2\xC8\x1\x60\xFB";
-	write(fileDescriptor,test.c_str() , 6*sizeof(char));
+	//std::string test = "\xFA\x2\xC8\x1\x60\xFB";
+	//unsigned char tmp[] = {250, 2, 150, 1, 100, 251};
+	//fwrite(tmp, sizeof(char), 6, fileDescriptor);	
+
+	
+	// convert sign of power into digit 1 or 2 for arduino comm.
+	tmp[1] = (unsigned char)round(1.5-0.5*abs(msg->linear.x)/(msg->linear.x));
+	tmp[2] = (unsigned char)round(abs(2*(msg->linear.x)));
+	tmp[3] = (unsigned char)round(1.5-0.5*abs(msg->linear.x)/(msg->linear.z));
+	tmp[4] = (unsigned char)round(abs(2*(msg->linear.z)));
+	write(fileDescriptor, tmp , 6*sizeof(char));
 
 
 /* To test in ros, first run this node, then issue the command:
