@@ -1,4 +1,8 @@
 # motorcomm node
+Motor communicator for [PermoCar](https://github.com/Trobolit/PermoCar) project.
+These node subscribe to the power to give the engines to forward the information to a Arduino threw a serial communication link.
+## Subscribe
+* Topic motor_power, geometry_msgs::Twist (message form engien_mgmt)
 
-This package contains the motorcomm node.
-Its only purpose is to subscribe to the apporopriate topic and relay the messages from enginemgmt node over serial to the arduino.
+## Publish
+* Serial communication to ttyACM1 containing motor power
